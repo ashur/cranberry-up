@@ -1,0 +1,73 @@
+#!/usr/bin/env php
+<?php
+
+/*
+ * Paths
+ */
+$pathBase = dirname( __DIR__ );
+
+/*
+ * Autoload: Vendor
+ */
+include_once( $pathBase . '/lib/helpers/autoload.php' );
+
+/*
+ * Directories
+ */
+$dirApp = new Cranberry\Core\File\Directory( $pathBase );
+$dirLib = $dirApp->childDir( 'lib' );
+
+$dirCommands = $dirLib->childDir( 'commands' );
+$dirHelpers = $dirLib->childDir( 'helpers' );
+$dirOptions = $dirLib->childDir( 'options' );
+
+/*
+ * App Configuration
+ */
+$configFile = $dirLib->child( 'config.json' );
+$configJSON = $configFile->getContents();
+$config = Cranberry\Core\JSON::decode( $configJSON, true );
+
+$appName = basename( __FILE__ );
+$app = new Cranberry\CLI\Application\Application( $appName, $config['version'], $config['php-min'], $dirApp );
+
+/*
+ * Autoload: Project
+ */
+registerNamespaceAutoloader( $config['namespace'] );
+
+/*
+ * Helpers
+ */
+$helperFiles = $dirHelpers->children();
+foreach( $helperFiles as $helperFile )
+{
+	include_once( $helperFile );
+}
+
+/*
+ * Commands & Executable Options
+ */
+$fileFilter = new Cranberry\Core\File\Filter();
+$fileFilter->includeFileExtension( 'php' );
+
+$commandFiles = $dirCommands->children( $fileFilter );
+$app->registerCommandFiles( $commandFiles );
+
+$optionFiles = $dirOptions->children( $fileFilter );
+$app->registerExecutableOptionFiles( $optionFiles );
+
+/*
+ * Run
+ */
+try
+{
+	$app->run();
+}
+catch( Exception $e )
+{
+	$output = Cranberry\CLI\Output\Output::exceptionLog( $e, $argv, $config['url'] );
+	echo $output;
+}
+
+$app->stop();
